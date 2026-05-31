@@ -3,7 +3,9 @@ pipeline {
 
     environment {
         DOCKERHUB_USER = "shashank1411"
-        IMAGE_TAG = "${env.GIT_COMMIT.take(7)}"
+
+        // SAFE fallback if GIT_COMMIT is null
+        IMAGE_TAG = "${env.GIT_COMMIT != null ? env.GIT_COMMIT.take(7) : 'latest'}"
 
         API_IMAGE    = "${DOCKERHUB_USER}/multi-api:${IMAGE_TAG}"
         CLIENT_IMAGE = "${DOCKERHUB_USER}/multi-client:${IMAGE_TAG}"
@@ -13,7 +15,13 @@ pipeline {
 
     stages {
 
-        stage('Checkout') {
+        stage('Clean Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+
+        stage('Checkout Code') {
             steps {
                 checkout scm
             }
@@ -101,7 +109,7 @@ pipeline {
                     git config user.name "jenkins"
 
                     git add .
-                    git commit -m "Update images ${IMAGE_TAG}" || true
+                    git commit -m "Update images ${IMAGE_TAG}" || echo "No changes to commit"
                     git push
                     """
                 }
