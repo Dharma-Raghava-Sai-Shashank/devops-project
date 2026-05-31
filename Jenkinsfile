@@ -4,13 +4,11 @@ pipeline {
     environment {
         DOCKERHUB_USER = "shashank1411"
 
-        // SAFE fallback if GIT_COMMIT is null
         IMAGE_TAG = "${env.GIT_COMMIT != null ? env.GIT_COMMIT.take(7) : 'latest'}"
 
         API_IMAGE    = "${DOCKERHUB_USER}/multi-api:${IMAGE_TAG}"
         CLIENT_IMAGE = "${DOCKERHUB_USER}/multi-client:${IMAGE_TAG}"
         WORKER_IMAGE = "${DOCKERHUB_USER}/multi-worker:${IMAGE_TAG}"
-        NGINX_IMAGE  = "${DOCKERHUB_USER}/multi-nginx:${IMAGE_TAG}"
     }
 
     stages {
@@ -24,7 +22,7 @@ pipeline {
         stage('Checkout Code') {
             steps {
                 git branch: 'main',
-                url: 'https://github.com/Dharma-Raghava-Sai-Shashank/devops-project.git'            
+                url: 'https://github.com/Dharma-Raghava-Sai-Shashank/devops-project.git'
             }
         }
 
@@ -52,12 +50,6 @@ pipeline {
             }
         }
 
-        stage('Build NGINX Image') {
-            steps {
-                sh "docker build -t $NGINX_IMAGE ./nginx"
-            }
-        }
-
         stage('Docker Login') {
             steps {
                 withCredentials([
@@ -80,7 +72,6 @@ pipeline {
                 docker push $API_IMAGE
                 docker push $CLIENT_IMAGE
                 docker push $WORKER_IMAGE
-                docker push $NGINX_IMAGE
                 """
             }
         }
@@ -104,7 +95,6 @@ pipeline {
                     sed -i.bak 's|multi-api:.*|multi-api:${IMAGE_TAG}|g' devops-project/server-deployment.yaml
                     sed -i.bak 's|multi-client:.*|multi-client:${IMAGE_TAG}|g' devops-project/client-deployment.yaml
                     sed -i.bak 's|multi-worker:.*|multi-worker:${IMAGE_TAG}|g' devops-project/worker-deployment.yaml
-                    sed -i.bak 's|multi-nginx:.*|multi-nginx:${IMAGE_TAG}|g' devops-project/nginx-deployment.yaml
 
                     git config user.email "jenkins@local"
                     git config user.name "jenkins"
