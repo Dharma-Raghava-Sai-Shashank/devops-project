@@ -23,7 +23,8 @@ pipeline {
 
         stage('Checkout Code') {
             steps {
-                checkout scm
+                git branch: 'main',
+                url: 'https://github.com/Dharma-Raghava-Sai-Shashank/devops-project.git'            
             }
         }
 
