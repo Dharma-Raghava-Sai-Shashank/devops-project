@@ -3,12 +3,6 @@ pipeline {
 
     environment {
         DOCKERHUB_USER = "shashank1411"
-
-        IMAGE_TAG = "${env.GIT_COMMIT != null ? env.GIT_COMMIT.take(7) : 'latest'}"
-
-        API_IMAGE    = "${DOCKERHUB_USER}/multi-api:${IMAGE_TAG}"
-        CLIENT_IMAGE = "${DOCKERHUB_USER}/multi-client:${IMAGE_TAG}"
-        WORKER_IMAGE = "${DOCKERHUB_USER}/multi-worker:${IMAGE_TAG}"
     }
 
     stages {
@@ -26,27 +20,25 @@ pipeline {
             }
         }
 
-        stage('Tests') {
+        stage('Set Image Tag') {
             steps {
-                sh 'echo "Run tests here (api/client/worker)"'
+                script {
+                    env.IMAGE_TAG = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
+
+                    env.API_IMAGE    = "${env.DOCKERHUB_USER}/multi-api:${env.IMAGE_TAG}"
+                    env.CLIENT_IMAGE = "${env.DOCKERHUB_USER}/multi-client:${env.IMAGE_TAG}"
+                    env.WORKER_IMAGE = "${env.DOCKERHUB_USER}/multi-worker:${env.IMAGE_TAG}"
+                }
             }
         }
 
-        stage('Build API Image') {
+        stage('Build Images') {
             steps {
-                sh "docker build -t $API_IMAGE ./server"
-            }
-        }
-
-        stage('Build Client Image') {
-            steps {
-                sh "docker build -t $CLIENT_IMAGE ./client"
-            }
-        }
-
-        stage('Build Worker Image') {
-            steps {
-                sh "docker build -t $WORKER_IMAGE ./worker"
+                sh """
+                docker build -t ${API_IMAGE} ./server
+                docker build -t ${CLIENT_IMAGE} ./client
+                docker build -t ${WORKER_IMAGE} ./worker
+                """
             }
         }
 
@@ -69,9 +61,9 @@ pipeline {
         stage('Push Images') {
             steps {
                 sh """
-                docker push $API_IMAGE
-                docker push $CLIENT_IMAGE
-                docker push $WORKER_IMAGE
+                docker push ${API_IMAGE}
+                docker push ${CLIENT_IMAGE}
+                docker push ${WORKER_IMAGE}
                 """
             }
         }
@@ -92,15 +84,20 @@ pipeline {
 
                     cd devops-charts
 
-                    sed -i.bak 's|multi-api:.*|multi-api:${IMAGE_TAG}|g' devops-project/server-deployment.yaml
-                    sed -i.bak 's|multi-client:.*|multi-client:${IMAGE_TAG}|g' devops-project/client-deployment.yaml
-                    sed -i.bak 's|multi-worker:.*|multi-worker:${IMAGE_TAG}|g' devops-project/worker-deployment.yaml
+                    # ---------------- CLIENT ----------------
+                    sed -i "s|image-tag:.*|image-tag: \"${IMAGE_TAG}\"|g" devops-project/client-deployment.yaml
+
+                    # ---------------- API ----------------
+                    sed -i "s|image-tag:.*|image-tag: \"${IMAGE_TAG}\"|g" devops-project/server-deployment.yaml
+
+                    # ---------------- WORKER ----------------
+                    sed -i "s|image-tag:.*|image-tag: \"${IMAGE_TAG}\"|g" devops-project/worker-deployment.yaml
 
                     git config user.email "jenkins@local"
                     git config user.name "jenkins"
 
                     git add .
-                    git commit -m "Update images ${IMAGE_TAG}" || echo "No changes to commit"
+                    git commit -m "Update image tags to ${IMAGE_TAG}" || echo "No changes"
                     git push
                     """
                 }
